@@ -75,6 +75,16 @@ run_fpgen()
     g++ -o sequential-80 -DFT=__float128 -DN=$N -DS=$S -DSEED=$SEED $test-INOUT-sample.c -lm
     cd $benchPath/$test/fptest
     $benchPath/../../scripts/compute_error.sh "klee-last/test*-input" ../test-sample/sequential-64 ../test-sample/sequential-80 myinput
+    
+    # Log all individual relative errors with their computation timestamp
+    ALL_ERRLOG=$benchPath/$test-err.log
+    while read -r line; do
+      rel_err=$(echo "$line" | cut -d " " -f 3)
+      timestamp=$(echo "$line" | cut -d " " -f 5)
+      echo "$timestamp, $rel_err, $count" >> $ALL_ERRLOG
+    done < rel-errors
+    
+    # Extract max error for this iteration
     err2=`sort -k 3 -g -r rel-errors | head -n 1 | cut -d " " -f 3 | awk '{printf "%5.4e", $1}'`
     num2=`cat klee-last/info | grep "generated tests" | cut -d "=" -f 2 | sed "s/ *//"`
     time2=`date -u -d @${Stime} +"%T"`

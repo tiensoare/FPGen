@@ -11,6 +11,9 @@ cinput=$4
 
 echo "compute_error.sh $tstring $exe64 $exe128"
 
+# Capture start time to compute elapsed times
+start_time=$(date '+%s.%N')
+
 maxrel=0.0
 best_test=none
 echo "" >rel-errors
@@ -21,7 +24,12 @@ for test in $(ls $tstring); do
   $exe128 $cinput test_input out-128
   $perror out-64 out-128 > out--
   rel=`grep "relative" out-- | cut -d ":" -f 2 | sed "s/ //g"`
-  echo "$test -- $rel" >> rel-errors
+  
+  # Timestamp when this error was computed
+  current_time=$(date '+%s.%N')
+  elapsed=$(echo "$current_time - $start_time" | bc)
+  
+  echo "$test -- $rel -- $elapsed" >> rel-errors
 
   a=`printf "%.20f" $maxrel`
   b=`printf "%.20f" $rel`
