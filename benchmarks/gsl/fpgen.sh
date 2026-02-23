@@ -100,7 +100,13 @@ run_fpgen()
     rm temp_$test.bc
 
     echo "time klee --allow-external-sym-calls --max-solver-time=$Stime --max-time=$Stime --search=nurs:covnew $test-SYMBOLIC-sample.bc myinput"
-    time klee -allow-external-sym-calls --max-solver-time=$Stime --max-time=$Stime --search=nurs:covnew $test-SYMBOLIC-sample.bc myinput
+    { time klee -allow-external-sym-calls --max-solver-time=$Stime --max-time=$Stime --search=nurs:covnew $test-SYMBOLIC-sample.bc myinput; } 2>&1 | tee klee-timing-$count.log
+    
+    # Extract KLEE execution time
+    klee_time=$(grep "real" klee-timing-$count.log | awk '{print $2}')
+    # Convert MMmSS.sss to seconds
+    klee_time_sec=$(echo "$klee_time" | awk -F'm' '{split($2,a,"s"); print $1*60 + a[1]}')
+    rm klee-timing-$count.log
     
     $benchPath/../../scripts/show_tests.sh &>/dev/null
     cd $benchPath/$test/test-sample; rm -rf sequential-* 
@@ -108,6 +114,15 @@ run_fpgen()
     g++ -o sequential-80 -DFB=80 -DN=$N -DS=$S -DSEED=${SEED} -I${gsl}/include -L${gsl}/lib $test-INOUT-sample.c -lgsl -lgslcblas
     cd $benchPath/$test/fptest
     $benchPath/../../scripts/compute_error.sh "klee-last/test*-input" ../test-sample/sequential-64 ../test-sample/sequential-80 myinput
+    
+    # Log all individual relative errors with their computation timestamp and KLEE time
+    ALL_ERRLOG=$benchPath/$test-err.log
+    while read -r line; do
+      rel_err=$(echo "$line" | cut -d " " -f 3)
+      timestamp=$(echo "$line" | cut -d " " -f 5)
+      echo "$count, $klee_time_sec, $timestamp, $rel_err" >> $ALL_ERRLOG
+    done < rel-errors
+
     err2=`sort -k 3 -g -r rel-errors | head -n 1 | cut -d " " -f 3 | awk '{printf "%5.4e", $1}'`
     num2=`cat klee-last/info | grep "generated tests" | cut -d "=" -f 2 | sed "s/ *//"`
     time2=`date -u -d @${Stime} +"%T"`
